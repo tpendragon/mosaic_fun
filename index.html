@@ -242,6 +242,34 @@ const mosaic = document.getElementById("mosaic");
 mosaic.style.gridTemplateColumns = `repeat(${bestCols}, 1fr)`;
 mosaic.style.gridTemplateRows = `repeat(${bestRows}, 1fr)`;
 
+// Color variance of the center 70% of the image
+function colorScore(img) {
+  const c = document.createElement("canvas");
+  const size = 64;
+  c.width = size; c.height = size;
+  const ctx = c.getContext("2d");
+  ctx.drawImage(img, 0, 0, size, size);
+  const data = ctx.getImageData(0, 0, size, size).data;
+  const margin = Math.floor(size * 0.15);
+  let sumR = 0, sumG = 0, sumB = 0, n = 0;
+  for (let y = margin; y < size - margin; y++) {
+    for (let x = margin; x < size - margin; x++) {
+      const i = (y * size + x) * 4;
+      sumR += data[i]; sumG += data[i+1]; sumB += data[i+2];
+      n++;
+    }
+  }
+  const avgR = sumR / n, avgG = sumG / n, avgB = sumB / n;
+  let variance = 0;
+  for (let y = margin; y < size - margin; y++) {
+    for (let x = margin; x < size - margin; x++) {
+      const i = (y * size + x) * 4;
+      variance += (data[i] - avgR) ** 2 + (data[i+1] - avgG) ** 2 + (data[i+2] - avgB) ** 2;
+    }
+  }
+  return variance / n;
+}
+
 posters.forEach(p => {
   const card = document.createElement("a");
   card.className = "card";
@@ -250,21 +278,56 @@ posters.forEach(p => {
   card.rel = "noopener";
   card.title = p.t;
 
-  const frontSrc = imgUrl(p.f, "full", 800);
-  const backSrc = p.b ? imgUrl(p.b, "full", 800) : null;
+  const src1 = imgUrl(p.f, "full", 800);
+  const src2 = p.b ? imgUrl(p.b, "full", 800) : null;
 
   card.innerHTML = `
     <div class="card-inner">
       <div class="card-front">
-        <img loading="lazy" alt="${p.t.replace(/"/g, '&quot;')}" src="${frontSrc}" onload="this.classList.add('loaded')">
+        <img alt="${p.t.replace(/"/g, '&quot;')}" crossorigin="anonymous">
       </div>
       <div class="card-back">
-        ${backSrc
-          ? `<img loading="lazy" alt="${p.t.replace(/"/g, '&quot;')} (back)" src="${backSrc}" onload="this.classList.add('loaded')">`
+        ${src2
+          ? `<img alt="${p.t.replace(/"/g, '&quot;')} (back)" crossorigin="anonymous">`
           : `<div class="no-back">${p.t}</div>`
         }
       </div>
     </div>`;
+
+  const frontImg = card.querySelector(".card-front img");
+  const backImg = card.querySelector(".card-back img");
+
+  if (src2 && backImg) {
+    // Load both images, detect which is the yellow back, assign correctly
+    const img1 = new Image(); img1.crossOrigin = "anonymous";
+    const img2 = new Image(); img2.crossOrigin = "anonymous";
+    let loaded = 0;
+    function checkSwap() {
+      loaded++;
+      if (loaded < 2) return;
+      const s1 = colorScore(img1);
+      const s2 = colorScore(img2);
+      // Higher score = more colorful/illustrated = the front
+      if (s1 < s2) {
+        frontImg.src = src2;
+        backImg.src = src1;
+      } else {
+        frontImg.src = src1;
+        backImg.src = src2;
+      }
+      frontImg.classList.add("loaded");
+      backImg.classList.add("loaded");
+    }
+    img1.onload = checkSwap;
+    img2.onload = checkSwap;
+    img1.onerror = () => { frontImg.src = src1; frontImg.classList.add("loaded"); };
+    img2.onerror = () => { if(backImg) { backImg.src = src2; backImg.classList.add("loaded"); } };
+    img1.src = src1;
+    img2.src = src2;
+  } else {
+    frontImg.src = src1;
+    frontImg.onload = () => frontImg.classList.add("loaded");
+  }
 
   mosaic.appendChild(card);
 });
