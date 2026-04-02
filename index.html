@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Movie Poster Mosaic</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body {
+  background: #111;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  font-family: Georgia, serif;
+}
+.mosaic {
+  display: grid;
+  width: 100vw;
+  height: 100vh;
+  gap: 0;
+}
+.card {
+  perspective: 900px;
+  cursor: pointer;
+  min-width: 0;
+  min-height: 0;
+  z-index: 1;
+  transition: z-index 0s 0.8s;
+}
+.card:hover {
+  z-index: 10;
+  transition: z-index 0s;
+}
+.card-inner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+  transition:
+    transform 0.7s cubic-bezier(0.34, 1.56, 0.64, 1),
+    box-shadow 0.3s ease;
+  transform: scale(1) rotateY(0deg);
+  box-shadow: 0 0 0 rgba(0,0,0,0);
+}
+.card:hover .card-inner {
+  transform: scale(1.08) rotateY(180deg);
+  box-shadow: 0 12px 40px rgba(0,0,0,0.7);
+}
+.card-front, .card-back {
+  position: absolute;
+  inset: 0;
+  backface-visibility: hidden;
+  overflow: hidden;
+  border-radius: 3px;
+}
+.card-front img, .card-back img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.card-back {
+  transform: rotateY(180deg);
+}
+.card-back .no-back {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #2a1a0a;
+  color: #c9a96e;
+  font-size: 14px;
+  text-align: center;
+  padding: 12px;
+  line-height: 1.4;
+}
+.card-front img {
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+.card-front img.loaded {
+  opacity: 1;
+}
+.card-front {
+  background: #222;
+}
+.card-back {
+  background: #1a1a1a;
+}
+</style>
+</head>
+<body>
+<div class="mosaic" id="mosaic"></div>
+<script>
+const BASE = "https://dpul-collections-staging.lib.princeton.edu";
+const posters = [
+  {t:"Tragico convegno",l:"/i/tragico-convegno/item/ad9fca0b-e803-44a8-b911-2fe4fdf13788",f:"72%2Fda%2F79%2F72da790b23f04f3599748767f5849e1c",b:"93%2F82%2F36%2F9382365d36c94ce883a4884a4d5010ef"},
+  {t:"Jack",l:"/i/jack/item/b44cd6cf-bae4-4161-b09d-2e26d8704c50",f:"56%2F13%2F6c%2F56136c95ada848848c971484d4aeb3dd",b:"6e%2F53%2F94%2F6e5394b0778040bab3b611c7c7a318d8"},
+  {t:"Le roman d'un caissier",l:"/i/roman-dun-caissier/item/2516c77f-6dd1-44fe-a569-eb5a91cf2494",f:"c3%2Fb2%2Fde%2Fc3b2de80347e42e691997952bf3a2024",b:"e4%2F6a%2F9c%2Fe46a9cf8f8f9454a974a77321dbb6e30"},
+  {t:"A welcome intruder",l:"/i/a-welcome-intruder/item/98ae9529-4025-432f-9147-93344cc69f7b",f:"ce%2F66%2Ff1%2Fce66f1b1f15340969b010667e7895be2",b:"fc%2F0d%2F3c%2Ffc0d3cf5867044ddabde2afedd70d0c3"},
+  {t:"Arabia, the equine detective",l:"/i/arabia-equine-detective/item/086e2c2c-88ad-4193-9460-b2c87644a1ff",f:"26%2F88%2Ff6%2F2688f67b2dfa4c75857bd75551c0b7b9",b:"9d%2Fb1%2Fde%2F9db1de207b61489eadfaf587ebb78e5d"},
+  {t:"The strong man's burden",l:"/i/strong-mans-burden/item/9dd51aaf-9978-4726-93b4-529e0610c0f6",f:"84%2F56%2Fa2%2F8456a2674e6041f1a9dc588e9e0deb00",b:"88%2Fb6%2F50%2F88b6500ea9124df989b71211733ecca7"},
+  {t:"Fate",l:"/i/fate/item/0a3837fe-b5f9-47be-a2c3-bbbbb5ee5782",f:"dd%2F9e%2F9c%2Fdd9e9ce7145f402fb5143866cafb8220",b:"d5%2Fd4%2F53%2Fd5d453e925e145c6813ca55aaa8d0b70"},
+  {t:"In the Niagara rapids",l:"/i/in-the-niagara-rapids/item/039cf1a5-3d3e-43ab-ad47-3972a0b64f99",f:"e3%2F6c%2F2f%2Fe36c2f1954e141c18dac8e4987793a4f",b:"60%2F6d%2F61%2F606d61e1032642d39ca1369fbe0b9ae4"},
+  {t:"Death awaits",l:"/i/death-awaits/item/3f747e38-327c-4b33-b518-f264a77055bf",f:"d0%2Fca%2F33%2Fd0ca33dfac80431a8bd9372cb39d49e1",b:"e2%2Fec%2Fcc%2Fe2eccca62bde4cbd8c7192d1992c5142"},
+  {t:"The chief's blanket",l:"/i/the-chiefs-blanket/item/ba9ce19f-b1e2-4ef4-b61e-b6ddc30c7b3c",f:"3a%2Ff6%2F7f%2F3af67ff6d3d741b3876d4012b5a33331",b:"d8%2Fba%2Fd8%2Fd8bad86a7d154a39b7f1f261b0c4dc2b"},
+  {t:"Nina's prayer",l:"/i/ninas-prayer/item/74336d87-52cd-4efc-b78f-9172ad95aa46",f:"dd%2Ffb%2F11%2Fddfb11cc153c4969ba04ca0c50272d18",b:"e2%2F2a%2F63%2Fe22a635a49e246949040fa74612d52a4"},
+  {t:"Les millions de la bonne",l:"/i/les-millions-de-la-bonne/item/34a044ba-8109-4683-88ed-f535d6ed5b15",f:"2b%2Fb0%2F69%2F2bb0699c70cb4cfd9dc3717fa0085be1",b:"b8%2Fef%2F13%2Fb8ef132d22c147d392c535770a1440fb"},
+  {t:"Der geheimnisvolle Club",l:"/i/der-geheimnisvolle-club/item/7ea7c3c4-701e-4fcd-b30c-01ca8e39f994",f:"39%2F58%2Faf%2F3958afc5dc22482fbc59d3de464bbbed",b:"6d%2F42%2F3a%2F6d423aa9903f45229e049c8988d13f5c"},
+  {t:"A canine Sherlock Holmes",l:"/i/canine-sherlock-holmes/item/c2e767ad-5f1b-425f-a635-b89ddf57031c",f:"6c%2F55%2Fdc%2F6c55dc9bafa24e12812a7c2af288a441",b:"a6%2Fd8%2F5a%2Fa6d85abed78d4c38bbf362e01e1fa71f"},
+  {t:"Good for the gout",l:"/i/good-for-the-gout/item/f2e674b0-5151-49b6-8c29-a694a39a6082",f:"4c%2Fea%2F19%2F4cea19bb105343fab7aedf31420dca3e",b:"ee%2Fe2%2F8d%2Feee28db47e62404b8ac521a2345e74ad"},
+  {t:"Father",l:"/i/father/item/08833dc4-486f-4561-8cec-71892b3277cc",f:"33%2F1c%2F78%2F331c780466704be0b35a1202c194eb13",b:"15%2F7d%2Fab%2F157dab0b3fa74805a76b5335532fbc9e"},
+  {t:"Armando.Vay",l:"/i/armandovay/item/e34effad-3527-4293-bf0e-7142c0aca8d1",f:"48%2Fde%2F29%2F48de29b0b786469dac7659c4ea74ec95",b:"7e%2F83%2Fad%2F7e83ad7f5878416eb5d7cc30421aab05"},
+  {t:"Sommerferienhäuser Modellausstellung",l:"/i/sommerferienh%C3%A4user-modellausstellun/item/e3cfcbea-457b-4c76-91ec-20b12cc699db",f:"53%2Fc1%2F9a%2F53c19a7a0f2944c39afd927ab68d77ab",b:"83%2F3b%2Fe6%2F833be6ef5d0f49a98dd5af0d0ea0c0a6"},
+  {t:"Czernowska: the story of a sin",l:"/i/czernowska-story-sin/item/2bcac02a-28f4-4271-af29-5a3f8265aecd",f:"a5%2Fe2%2F2f%2Fa5e22fc0ac8a49e4b9e26f46dcd3be3a",b:"5f%2F3b%2Fea%2F5f3beabe7ae244059d1fc74c8ef80f1c"},
+  {t:"Cajus Julius Caesar",l:"/i/cajus-julius-caesar/item/7720c99d-a21e-4bae-b046-078d18776be5",f:"84%2Fcb%2F39%2F84cb39a93d794016ae8ff4b6dac3ee47",b:"bb%2F31%2Fc7%2Fbb31c74f62984838bc0215bc68af5e29"},
+  {t:"Through shadowed vales",l:"/i/through-shadowed-vales/item/9f2ba459-c576-40b9-ae64-368f0907229d",f:"db%2F94%2F1e%2Fdb941e209f204696ba4690c34d5bdd41",b:"6f%2Fda%2F37%2F6fda37e4d30740baa638585e60def6e2"},
+  {t:"The babes in the wood",l:"/i/the-babes-in-the-wood/item/872c9cd3-4632-4fe9-a08b-afc51a0987f2",f:"25%2F33%2Fd3%2F2533d3183d674b0799a171fe4bc2a90a",b:"8f%2F2e%2F90%2F8f2e90ada56b4f9da4b1c2e4f133cad7"},
+  {t:"Die Schwarze Natter",l:"/i/die-schwarze-natter/item/498af6c4-d2ac-4d90-8097-4032f26ce3ae",f:"e1%2F72%2F43%2Fe1724340fd334f698c1ca6865612914a",b:"31%2F7b%2F1a%2F317b1a9bc4b74a0db8f900e2e96b8aeb"},
+  {t:"Kri-kri a perduto la testa",l:"/i/krikri-a-perduto-la-testa/item/c879156c-58e0-4fc1-8d64-690a13f85de1",f:"cc%2F9b%2Fe3%2Fcc9be304f52b480c9afa43ad967816b2",b:"fa%2Fdc%2F33%2Ffadc33df70404664a6ec42906289f222"},
+  {t:"Damned and the heaven-bound",l:"/i/damned-and-the-heavenbound/item/2dd3e7de-44be-4ca2-9bd4-54e783ac3c98",f:"12%2Fb9%2F86%2F12b9861bd23e417bad02e7168ab6cb53",b:"02%2Fd1%2Fdf%2F02d1dfc557114c33b6a11d8a22beaa3f"},
+  {t:"Das Recht auf Dasein",l:"/i/das-recht-auf-dasein/item/c599d7fd-68a6-4289-ab9e-9b0f94b34bd1",f:"50%2F35%2F2a%2F50352a259b4540a3bbea2f504ce3113c",b:"08%2Fdc%2F55%2F08dc55148ced4a328b6b85ccd63e4a49"},
+  {t:"Le crin reve lateur",l:"/i/le-crin-reve-lateur-das/item/15b5a1d5-3183-4cf4-96cc-325def490d51",f:"60%2Ff2%2Fbd%2F60f2bda232c14e3d84979ac671b51703",b:"67%2Fc7%2F59%2F67c7594c13bb4953b7c71ca7864b05fe"},
+  {t:"Pimple wins a bet",l:"/i/pimple-wins-bet/item/d07ea365-4f29-401d-8a62-5ad93985607b",f:"7d%2F2e%2F96%2F7d2e9665d9a24db1b99978821f2c623f",b:"4c%2F47%2F89%2F4c47895b64e7412099a9deddb12007c0"},
+  {t:"La tragedia di Kir-Kri",l:"/i/la-tragedia-kirkri/item/79070b3b-637e-4925-bd44-5832b6aa9b5e",f:"3d%2F6d%2Fdd%2F3d6ddde76102403399142842f8a38947",b:"08%2Fb6%2F5d%2F08b65deac1254ba8914d0a50b9de393c"},
+  {t:"Harlequin jumping off bridge",l:"/i/harlequin-jumping-off-bridge/item/8c959568-e155-475e-b734-c3eb87877d2f",f:"2e%2Fda%2F16%2F2eda1637d4d14b94b2f5391fb0560077",b:"4d%2Fc6%2Ff1%2F4dc6f168277643058d31d3bc985cb347"},
+  {t:"Il Focolare domestico",l:"/i/il-focolare-domestico/item/f3426d63-f6a1-49d4-9ec9-4350b2987f0f",f:"9b%2Fac%2Fd9%2F9bacd96dfe7c44c9a505ff6ab087f8f1",b:"6e%2F63%2Fcb%2F6e63cb58acdf44d6a525765cb1ffcb20"},
+  {t:"Fred, couche-toi!",l:"/i/fred-couchetoi/item/dc9684f1-867e-4625-b44a-f5d100503b43",f:"c9%2Fbf%2F7a%2Fc9bf7a0b026c419abba870c825a8584b",b:"52%2Fc5%2F29%2F52c52943606c4494a899e118b79c0874"},
+  {t:"Das Paradies der Damen",l:"/i/das-paradies-der-damen/item/3b4bf15d-6750-4c3d-8e08-dab29161481a",f:"17%2Fa8%2Ffa%2F17a8fac04465415189a9eaf9288576d8",b:"c3%2F5b%2F25%2Fc35b25c7d68e4866a9347748705076fa"},
+  {t:"Kri-kri e lea militari",l:"/i/krikri-e-lea-militari/item/66a28b14-8151-488e-9a75-3cd7f7968a30",f:"21%2F1c%2F1e%2F211c1eb460804f0f99c62662137c6994",b:"fe%2Fa1%2F89%2Ffea189d600e6441299254e611fd96b1b"},
+  {t:"The sin of another",l:"/i/the-sin-of-another/item/66ae6672-9253-493e-a580-5886ef28b3da",f:"2e%2Fd2%2F7d%2F2ed27dcbbd2e41c4a597d63eb11c3c0d",b:"75%2F3d%2Fd7%2F753dd7163354481b972abc68e741bb94"},
+  {t:"Das Geheimschloss",l:"/i/das-geheimschloss/item/0f935d76-5437-4178-b388-6065b4122c1a",f:"b4%2F2a%2F35%2Fb42a359ed88743869fcfd79674a07a0f",b:"91%2F8d%2F05%2F918d05fb9a6446038a9d6fa482fe5d63"},
+  {t:"The regeneration of Worthless Dan",l:"/i/regeneration-worthless-dan/item/a22b6569-95f1-46c0-9277-3960f7d46bde",f:"66%2Fc4%2Fd7%2F66c4d7f39d3842419cd9fcbbd194ee4e",b:"88%2F56%2Fd7%2F8856d747609244d79e230c30bd3cbcaa"},
+  {t:"Das Weib",l:"/i/das-weib/item/913cfd8c-438e-4325-9faa-7aa050268aae",f:"46%2Ff0%2Fe1%2F46f0e1993e214957afc9a2d4d1db200a",b:"b5%2F3d%2F97%2Fb53d97340a0548f39baa8aba9204f2d3"},
+  {t:"The streets of New York",l:"/i/streets-new-york/item/9b49f0af-a95b-4514-a95d-f37e616f8df4",f:"19%2F64%2F0e%2F19640e12233c4f069ecb2e1eb0eb5e11",b:"e5%2F98%2F11%2Fe5981165b2ae4beba439fd03eaf31371"},
+  {t:"Hollandische Kunststellung Krefeld",l:"/i/hollandische-kunststellung-krefeld/item/6f0924ee-d1f5-46d7-89cc-4ec70a578758",f:"40%2F3b%2Fa9%2F403ba94a668b4e8490154bfd549faa7b",b:"21%2F84%2Fe4%2F2184e46426af42b88a1c5b0ff2532399"},
+  {t:"Le feu qui purifie",l:"/i/feu-purifie-belohnter-opfermut/item/81e2e21e-a8eb-466e-8895-c441fc17baf2",f:"1b%2Fb7%2Fd2%2F1bb7d229188c487dafaafa3cf99b8c2a",b:"f5%2Fb7%2F0d%2Ff5b70d23a24c4e23ba34d6c1931c6dd4"},
+  {t:"The story of Lavinia",l:"/i/the-story-of-lavinia/item/4af28d57-f7a3-4a37-a061-ddfc254fddba",f:"57%2F7a%2F8a%2F577a8af2569b4c23b6eba6c30992ffbd",b:"e6%2F72%2F42%2Fe6724212d57246d6b11f4fdd517ae224"},
+  {t:"Kri-kri stalliero per amore",l:"/i/krikri-stalliero-per-amore/item/2fb41db8-8777-4210-8916-0bc729d28758",f:"83%2Fdf%2F49%2F83df493beb8a4af68c63673fc3197e20",b:"9f%2Faa%2F18%2F9faa1800dc024484b86846b27d9d9b73"},
+  {t:"Die Kinder des Majors",l:"/i/die-kinder-des-majors/item/8641ae78-10fe-4061-92ee-146a07433450",f:"f5%2Fa0%2Fcb%2Ff5a0cb3bbe6843569a8928987f6b1990",b:"db%2F48%2F70%2Fdb48706438154f0d82e5173eadacd6fa"},
+  {t:"Brennan of the moor",l:"/i/brennan-of-the-moor/item/bec14a97-07be-48cc-811a-b4d7edab5e17",f:"e7%2Ff0%2Fc6%2Fe7f0c67e4fd24375a21558850c1ab735",b:"75%2F85%2Fa0%2F7585a096283b45d79636b6038fafacf7"},
+  {t:"Turi",l:"/i/turi/item/60573ea2-edfe-4f85-af4f-5b6067f291ff",f:"fe%2F37%2F4d%2Ffe374d936b274b55baf88e0c7a483485",b:"38%2F49%2F9a%2F38499a26317641f3a97e8fef3160c410"},
+  {t:"Pimple has a try",l:"/i/pimple-has-try-cinema-artist/item/70fe34bb-6d19-4aa6-86a4-05844d11b52d",f:"17%2F58%2Ff8%2F1758f84497a8479baa9f155167986a96",b:"ea%2Fcf%2F86%2Feacf86ff7c7b4b17a3cfca03c99ed5e6"},
+  {t:"The sacrifice: rural courtesy",l:"/i/sacrifice-rural-courtesy/item/fa750d9e-8af2-4a7d-ab05-ac9bd305e76d",f:"51%2F66%2Fe2%2F5166e299d34e4ed7981649550266f137",b:"e8%2F51%2F06%2Fe85106a4d66849ee93575b754287ba72"},
+  {t:"Der Steckbrief",l:"/i/der-steckbrief/item/87989b7a-4018-403f-8044-2c1da1686bae",f:"99%2Ff8%2Fab%2F99f8ab0ed32049d39d47755667a85ebd",b:"2e%2Fff%2F08%2F2eff088fa63042d195a9db0d09387561"},
+  {t:"Fixing a flirt",l:"/i/fixing-a-flirt/item/98f0247e-ef67-44f2-89e3-5646d8416393",f:"a6%2F50%2Fac%2Fa650ac0723944da0ac66f4940d7eb376",b:"82%2Fdf%2F3d%2F82df3dfdb2ca4abb9d43b557b739ed6c"},
+  {t:"His secret",l:"/i/his-secret/item/e4126bee-c27d-462f-80ca-2cc328cd62e2",f:"29%2F18%2F7f%2F29187f4d7d004628b4829989621f69a0",b:"75%2Fd2%2F69%2F75d269e4c10a4effb65f4063a293e304"},
+  {t:"Caught",l:"/i/caught/item/9296125f-264e-46b0-80d0-e07342e9297c",f:"c2%2F2c%2F28%2Fc22c281809b84143926b757bfdb25261",b:"c4%2F1a%2Fa7%2Fc41aa7e5d5fa490aa0a42c211f1cffde"},
+  {t:"Die Schwarze Natter (2)",l:"/i/die-schwarze-natter/item/99ec70f4-879c-4d6e-835c-76e3189e8748",f:"0e%2F67%2F44%2F0e6744c3180d475fb22a7e5572a92f80",b:"0e%2Fa1%2F72%2F0ea172296942468f9403ae9a373f3d73"},
+  {t:"De landlooper",l:"/i/landlooper-eene-ware-gebeurtenis-th/item/1d70609a-3bf5-4699-b28a-18e15bddc9d3",f:"8e%2F8b%2F02%2F8e8b02c4832f4662a4b67c8f023030a6",b:"ba%2F53%2F31%2Fba5331647bd84acdb4bbcdcdbd586e47"},
+  {t:"Dr. Axelrod's Joghurt",l:"/i/dr-axelrods-joghurt/item/925f0e20-192e-4e40-8bfa-f0de3d17c706",f:"bf%2Fce%2F2b%2Fbfce2b5789d04d06be9768878e015eac",b:"0b%2Fbd%2F64%2F0bbd646fcd6c43ee81c308bb87c66841"},
+  {t:"Le faux comte",l:"/i/le-faux-comte/item/e02a17e0-8c34-453d-b04a-c405ea0b7d24",f:"a3%2Fe4%2F98%2Fa3e4988298ce4beea4beb115db5460b2",b:"98%2F9a%2F23%2F989a23f3e530495698c94b08b6816503"},
+  {t:"Le tigre = Der Tiger",l:"/i/le-tigre-tiger/item/28721b1f-b1d8-4f62-94c6-da5d2e698b40",f:"fc%2F75%2Fcd%2Ffc75cddfd1af4faa9fcc65d42e2f4ac8",b:"db%2Fbb%2F49%2Fdbbb4967d1394751bc1766f4d3cd8802"},
+  {t:"Pimple collects the rent",l:"/i/pimple-collects-rent/item/ea98c377-8244-45e5-84a4-725ff0ec3907",f:"26%2F05%2F36%2F2605360d99ef4b7e85f2cf28e4aa569b",b:"04%2Feb%2Fd2%2F04ebd224ca9f46128bfa248ab958ee6f"},
+  {t:"The fairy bottle",l:"/i/the-fairy-bottle/item/3424837d-9c86-4629-9f6d-ad3550686502",f:"a0%2Fd1%2Fde%2Fa0d1de4b1b814d6c9dbe047b97a0e83b",b:"3c%2F24%2Fa7%2F3c24a704d9a5489dbdced24f61145e3d"},
+  {t:"Star of Bethlehem",l:"/i/star-of-bethlehem/item/e64e1e3c-e16a-40ff-8c47-61b0ceade1dd",f:"9f%2F81%2F81%2F9f8181a2e9a44a418cbfe4b2048f5c17",b:"6e%2Fcc%2F89%2F6ecc89755d874b9b8239907c1977cc22"},
+  {t:"Wenn Völker streiten",l:"/i/wenn-v%C3%B6lker-streiten/item/50f5aae1-75e6-444e-bc18-4469ab3329c7",f:"ed%2F28%2F4b%2Fed284b6e8ad547c2af1b839a31a96792",b:"cf%2F60%2F04%2Fcf60046a81fe4afd8c35c0c8633fdce5"},
+  {t:"A railroad wooing",l:"/i/railroad-wooing-married-express/item/80c5b471-f74c-48d3-a0e8-e13378a4feaa",f:"ce%2Fa5%2F96%2Fcea596e03f4c4adebb16a186ac4b3572",b:"47%2Fe1%2F6c%2F47e16cf01bc2423fb4ce32038fc480be"},
+  {t:"L'or meurtrier",l:"/i/lor-meurtrier-beiden-goldgr%C3%A4ber/item/e62b52db-ecc8-4904-8324-5815bdc1ee88",f:"c5%2F14%2Fcf%2Fc514cfe0c3be4f968bfe9491a27e25a3",b:"d9%2F29%2F51%2Fd92951f964f54cff8cb472e80c1af954"},
+  {t:"Quand la terre trembla",l:"/i/quand-terre-trembla/item/0020af92-c9c8-48db-aad3-c1071920b36b",f:"95%2F10%2F34%2F9510347480604ce1bdfa98e5a11da667",b:"4a%2F6a%2Fb2%2F4a6ab24f4e4c422ea69b3fca0bef5655"},
+  {t:"In hoc signo vinces",l:"/i/hoc-signo-vinces-volgt-teeken/item/0633335b-15ac-419a-b251-1aaebd7d954a",f:"6c%2F54%2F29%2F6c54291edb7f42649e8840f1a3f4687f",b:"1e%2F42%2F1b%2F1e421ba5a9154cc6a9cdd89ca6f39fd6"},
+  {t:"Champignol malgre lui",l:"/i/champignol-malgre-lui/item/15db2607-73b5-42c3-a10e-ff4535534f8f",f:"51%2Fba%2F8b%2F51ba8b1153064c2688431a24ea92f233",b:"fb%2Fbc%2F05%2Ffbbc058e6f1f4485860e870919859b2a"},
+  {t:"Le desespoir de Petronille",l:"/i/le-desespoir-de-petronille/item/a977fc73-bb1e-4357-a9c1-c91d6704a913",f:"2a%2Fc8%2Fb1%2F2ac8b16db9e744e2bf3e561b0db04c03",b:"04%2Fbb%2F9b%2F04bb9b0e32044454846873197cc55c20"},
+  {t:"Ching Chang's little fan",l:"/i/ching-changs-little-fan/item/1eface23-40c6-440e-a978-d1eda28fa7e2",f:"ca%2Fae%2Fc4%2Fcaaec405bf964cc3a3fd12b2404488d5",b:"d9%2F17%2Fe0%2Fd917e0ae4a9c4c59b4f8b3144795846a"},
+  {t:"In peril of their lives",l:"/i/in-peril-of-their-lives/item/ae62768b-52bb-4074-9128-2358aeb01096",f:"7b%2F57%2F7b%2F7b577b51d4054c3b99fdb6365af193f3",b:"97%2F59%2Fa3%2F9759a3184d214087ab5185e8762e66d5"},
+  {t:"Casimir Tangue",l:"/i/casimir-tangue/item/608f22c4-440d-4f94-8274-47b6dfba1dc5",f:"06%2Fbb%2Fee%2F06bbee69e4404d1b877ba24ad8261d50",b:"1d%2F9e%2Fba%2F1d9eba802aa649d9b60bfb55c73adc03"},
+  {t:"Leonce flirt",l:"/i/leonce-flirt/item/1fa6b41f-7ddd-4e59-bf64-5a9d9b877b7b",f:"17%2Fed%2F86%2F17ed86c12d3d4ba59b013aaa81f6b23d",b:"df%2Fa0%2F56%2Fdfa056e8357a4e91ac484b0402a28981"},
+  {t:"Greta Garbo",l:"/i/greta-garbo/item/05f42d62-26a7-41e2-8a7e-df3aae0e0b44",f:"4c%2Fec%2F2b%2F4cec2ba7b7704e64b7d4eab81c7d6c39",b:"e4%2Fae%2F08%2Fe4ae089420ca4d939048dd41389f9fb2"},
+  {t:"Das freudige Ereignis",l:"/i/das-freudige-ereignis/item/43c0c9c2-f0a5-4e2d-87ae-5cfe4a04c7c7",f:"67%2F03%2F09%2F670309538d594f64bdb2f5263b7e98de",b:"b2%2F43%2Fec%2Fb243ec42b8bc474b939fa955c9f8ab16"},
+  {t:"Des Kindes Einfluss",l:"/i/des-kindes-einfluss/item/80b0cdce-acda-4607-88be-b856e40a18e2",f:"8c%2Fe8%2F19%2F8ce8199b8e2b414289969ae10933b577",b:"e2%2Fce%2Fee%2Fe2ceeec5a8c14805953046a3587d41fa"},
+  {t:"Paying the board bill",l:"/i/paying-board-bill/item/4faee6d9-c31c-465a-b799-b1c271cb550e",f:"b3%2F4f%2Fe5%2Fb34fe56e3b82400cbdf2439c8fccb738",b:"bd%2F48%2F4a%2Fbd484a36084648e58fb0f1d75aa54e16"},
+  {t:"His hour of triumph",l:"/i/his-hour-triumph/item/ef00d9a5-8a9c-43d9-80b4-ffe91d78f277",f:"71%2F40%2Fcb%2F7140cb04f5854a919f8bc7ccc58f383e",b:"61%2Fbd%2Ffe%2F61bdfe0287c74b2f8f12630e493c1b44"},
+  {t:"Seine Schwiegermutter",l:"/i/seine-schwiegermutter/item/ee6d7112-381f-4744-8d61-d01e32def856",f:"f1%2Fdd%2F80%2Ff1dd80c1ceea41809221241a505a875b",b:"a1%2Fa4%2F19%2Fa1a419f6ffaa4616976c57a23884fe2e"},
+  {t:"Two daughters of Eve",l:"/i/two-daughters-eve/item/4c801a0b-47ab-451b-9237-e36930be11b5",f:"bd%2Fd1%2Ff3%2Fbdd1f356d1584ed990c822f352b02400",b:"5b%2F64%2Fc4%2F5b64c4e38bb94588abd80279af47f687"},
+  {t:"The little girl next door",l:"/i/little-girl-next-door/item/cbb2789e-69ef-4677-bbee-8236f98d37db",f:"5d%2Fb9%2F23%2F5db9236b8f804db187b6b285d8980f0b",b:"d8%2Fde%2Fd5%2Fd8ded5b52b7940508c5e40c34b81771f"},
+  {t:"La demande interrompue",l:"/i/la-demande-interrompue-verlobung-hi/item/5b8da08c-9aed-48f6-8734-64b2011464f7",f:"34%2Fe6%2F45%2F34e645ed0e9e45e79c9dd6695d9694de",b:"50%2Fb6%2F24%2F50b624b13a194898a3616ec9c22a9bc0"},
+  {t:"Man's genesis",l:"/i/mans-genesis/item/7ddc2771-a4b7-408d-821e-a6b2b04b4372",f:"64%2Fde%2F1b%2F64de1b4a3ab7452d8d8103b940d99333",b:"31%2F69%2Ff7%2F3169f77e536641a49f5c7e19bb6d6329"},
+  {t:"The high-born child and the beggar",l:"/i/highborn-child-beggar/item/ec2d39d6-00fa-4129-967f-75bd7095eff2",f:"77%2F3c%2F2b%2F773c2bcc7b4344c0858b68b91d839a4a",b:"dc%2Fcd%2F41%2Fdccd41e1815d48379d0aac021bce5412"},
+  {t:"The Indian raid",l:"/i/the-indian-raid/item/f882a8a2-3712-482d-b00b-ed0461812668",f:"ed%2Fd5%2F0e%2Fedd50e22e23643d1993bf584c1f4df86",b:"3e%2F5b%2F73%2F3e5b73853e7f41a8981e4d05a12bff15"},
+  {t:"The streets of New York (2)",l:"/i/streets-new-york/item/dd5c8318-76a3-4123-b244-b4ef0aceab67",f:"5e%2F1b%2Fab%2F5e1bab2b31a24098886fda5d253d40ba",b:"96%2F00%2F3b%2F96003bad545044ce9287e09dad141376"},
+  {t:"Two girls",l:"/i/two-girls/item/675abc63-d0eb-4ba2-a932-7a8e1286fc04",f:"92%2F7f%2F9a%2F927f9a22953f4c97bd761c480c371641",b:"66%2F05%2Fa5%2F6605a53264b743d499b200975bc603d0"},
+  {t:"When father fetched the doctor",l:"/i/when-father-fetched-doctor/item/f30a0b58-c73c-4bee-b9ad-74fad46fab33",f:"4a%2F93%2Fa5%2F4a93a5edf2d44fb98cb8b84341712b36",b:"c3%2F50%2F7c%2Fc3507ce56b944ce085136f82379a3be0"},
+  {t:"Les millions de la bonne (2)",l:"/i/les-millions-de-la-bonne/item/d93f5ded-e858-49f2-a949-50f1610b689a",f:"76%2F71%2Faa%2F7671aaa06ce24e9683dfcbc5f8652b4b",b:"dc%2F4e%2F7c%2Fdc4e7c1a3efb4aa7b613958d904f959c"},
+  {t:"L'appuntamento di Kri-kri",l:"/i/lappuntamento-di-krikri/item/b20a1dbf-0833-4840-82cb-87b4494ac7be",f:"72%2Fd0%2Fc1%2F72d0c11195264da59e184f8bb761e2d0",b:"90%2F35%2F20%2F903520b4c4b54591a354344b5d034b6e"},
+  {t:"Harlequin & Pierrette",l:"/i/harlequin-pierrette/item/fc14d189-24ba-4fa2-93bf-2e8925a9a3e5",f:"7c%2Fd8%2Fcb%2F7cd8cb73f7b54342aec4084a8659a98c",b:"cb%2Fd6%2F18%2Fcbd618a6e8f241e89871890beb1825bc"},
+  {t:"Fatale distrazione",l:"/i/fatale-distrazione-fatale-distracti/item/1aecf64c-6475-4df1-bccc-d62cc3cd1a63",f:"cb%2F2c%2Fa2%2Fcb2ca2984d1b48009f667bea01571d80",b:"25%2Fa5%2F42%2F25a54249b309493abf86a461f666f18f"},
+  {t:"La trovata di Kri-kri",l:"/i/la-trovata-di-krikri/item/10ee39d5-c960-4384-b353-def4dff942ed",f:"0a%2Fb7%2F7a%2F0ab77ac9ec244448b1167c226c768a4c",b:"80%2F45%2Faf%2F8045af0ebfa84f238358dfa11e9dc646"},
+  {t:"Polidor",l:"/i/polidor/item/4778f92c-ae62-4644-a275-f5bb5ce2e4ff",f:"71%2Fee%2F13%2F71ee13c8a61b4819ad0e0b42516a7886",b:"80%2F4e%2Fa9%2F804ea9a524f441d7939b250bd0958b68"},
+  {t:"La maschera Pietosa",l:"/i/la-maschera-pietosa/item/397d32c5-8ff2-4df4-874e-1db0c6f684de",f:"b1%2F09%2F47%2Fb1094716916b4aea8c0e2c9d0eba2463",b:"f6%2F1d%2F43%2Ff61d43d7018243e0a18baf069b32f0ba"},
+  {t:"La terra promessa",l:"/i/la-terra-promessa-das-gelobte/item/c41c58db-1fe8-48f8-8293-277c9c6830ae",f:"0b%2F2d%2Fdb%2F0b2ddb31a34d45e09f764905eb9fbb9d",b:"a3%2F18%2Fb9%2Fa318b930f55f4a33b72655a5cd271f30"},
+  {t:"Tragico convegno (2)",l:"/i/tragico-convegno/item/21e57272-4126-40a3-9900-3b5c3cf3ad19",f:"3a%2F9d%2F69%2F3a9d69115a0e48648c9f8c02d92b9a66",b:"21%2F5f%2F74%2F215f744951224333b2ec89d53d9d5bd9"},
+  {t:"L'enfant de Paris",l:"/i/lenfant-de-paris/item/47ce79b5-245c-4116-910b-48f3ab677daa",f:"0a%2Fe1%2F44%2F0ae144b031f94dfc89f5d89bb760fc2e",b:"1a%2F2b%2Fe5%2F1a2be54da34c465b8a4f5d2adb88e927"},
+  {t:"Her secret",l:"/i/her-secret/item/5cf59c5f-66c7-45d5-956c-328893b8bc6a",f:"0e%2Ffa%2F4f%2F0efa4fe8b4b941f68baff724c2bb3649",b:"f9%2F28%2Fc2%2Ff928c2aa514b44db94be803668d3690f"},
+  {t:"Duetto a quattro",l:"/i/duetto-a-quattro/item/c8d5b602-719b-497b-bc10-dd7699d59b3f",f:"00%2F21%2F3a%2F00213aa0b30a4e0e9911b16c097163cb",b:"2e%2Fe3%2Fa9%2F2ee3a914ade94f84bf45a5c7974245a4"},
+  {t:"Acqua miracolosa",l:"/i/acqua-miracolosa/item/d58c71ca-ac29-455a-82a9-f86436a6a228",f:"33%2Fec%2Fac%2F33ecacf6cc9f486eb4afbc8e93727fe6",b:"da%2F8f%2F06%2Fda8f06408eac432b8f5c5ba34e2915cc"},
+  {t:"Drink's lure",l:"/i/drinks-lure/item/0d057e09-0bf4-44e0-b16d-8af8efda5e89",f:"db%2F0f%2Fd2%2Fdb0fd232e7574c23ad6eda4ab71973e8",b:"1f%2Fc4%2F6b%2F1fc46be261ca481a866bcfff41e4b142"},
+  {t:"The sin of another (2)",l:"/i/the-sin-of-another/item/47381698-6a27-4d8b-a8e3-39501255594e",f:"a9%2F20%2Fea%2Fa920ea4492fc49e7a5201000a4085de0",b:"0c%2F31%2F5c%2F0c315cc0dffd48f8b5a30351e6fe4436"},
+  {t:"Den gudlosa flickan",l:"/i/den-gudlosa-flickan-the-godless/item/29837ae4-7135-42ee-87bc-363d4e015f68",f:"56%2F21%2F9d%2F56219d77521345418eb4cc78e070717b",b:"fd%2Ffb%2Fa2%2Ffdfba2efbc424011b64ac04a5e0e7234"},
+  {t:"The battle at Elderbusch gulch",l:"/i/the-battle-at-elderbusch-gulch/item/0f988e8f-1104-42d8-8701-d8fcd0c13c5f",f:"1b%2F39%2Faf%2F1b39af28fd764c4f99378c9387e1e431",b:"cd%2F30%2F90%2Fcd3090eef52e491badf69c682457c1d5"},
+  {t:"Le facteur de Cupidon",l:"/i/le-facteur-de-cupidon-ein/item/2e8da12d-bf11-4a2d-a9a3-12414e61aa60",f:"07%2Fb8%2F6f%2F07b86f74e0024a17a730f280588f862e",b:"d2%2F3d%2Faf%2Fd23dafe04dcf488ba0cce43d9daab820"},
+  {t:"Aunt's too many",l:"/i/aunts-too-many/item/9d944c9a-a17b-4df0-87ad-a801fa18fe0c",f:"a6%2F90%2Fe4%2Fa690e41bc8394c658f6db35114e9a69d",b:"c4%2F11%2Fbb%2Fc411bbb38b754ef5925c5aeb12252f92"},
+  {t:"The church across the way",l:"/i/church-across-way/item/82a47460-af1a-4bc6-a363-c77c4ec05dc7",f:"b2%2Fe4%2F78%2Fb2e478ad126045d69315aa16fd40b1e8",b:"72%2F5a%2Fb8%2F725ab832a4e14899a7d3f970852c81ba"},
+  {t:"Jack (2)",l:"/i/jack/item/5e8335f2-0043-4313-812c-17809d7d0c7b",f:"1f%2F3b%2F07%2F1f3b07cc6f2d4e3082699f19ef3e7152",b:"af%2F28%2Fc2%2Faf28c2ffa6e34b3a9fc04f1aa40cb787"},
+  {t:"Kri-kri imita Pegoud",l:"/i/krikri-imita-pegoud/item/c331808d-fa65-471c-9cc1-e52e4f20bc93",f:"53%2F75%2Fbc%2F5375bcfafb0e49e7a223a3d13c9572bd",b:"a9%2F99%2Fa0%2Fa999a0cb560549b9864a4d80a047c99c"},
+  {t:"Le roman d'un caissier (2)",l:"/i/roman-dun-caissier/item/40eb5b66-613a-40dd-bbf4-2123a122d1e7",f:"30%2F79%2F33%2F3079334ae6754efb8878189b8bba57d7",b:"72%2F26%2F26%2F722626b691964cfeb1ff8c829964701e"},
+  {t:"Oscar pris au piege",l:"/i/oscar-pris-au-piege/item/9a7c9f82-756c-460d-a955-29ccd608902d",f:"c3%2F23%2Fa1%2Fc323a1d26624497189fa5ffd3ce5cda6",b:"71%2F82%2F4a%2F71824a0dbe784a6187f20dc070a28334"},
+  {t:"Smokestack & fire",l:"/i/smokestack-fire/item/380336cb-d0e8-45fe-ab13-283aee30221c",f:"8a%2Ff3%2F64%2F8af36444765b4d03a9974eaf0a212284",b:null}
+];
+
+const IIIF = "https://iiif-cloud.princeton.edu/iiif/2/";
+function imgUrl(id, region, size) {
+  return `${IIIF}${id}%2Fintermediate_file/${region}/!${size},${size}/0/default.jpg`;
+}
+
+// Shuffle
+for (let i = posters.length - 1; i > 0; i--) {
+  const j = Math.floor(Math.random() * (i + 1));
+  [posters[i], posters[j]] = [posters[j], posters[i]];
+}
+
+const vw = window.innerWidth;
+const vh = window.innerHeight;
+
+const POSTER_ASPECT = 0.65;
+let bestCols = 12, bestScore = Infinity;
+for (let c = 8; c <= 20; c++) {
+  const r = Math.ceil(posters.length / c);
+  const cellAspect = (vw / c) / (vh / r);
+  const score = Math.abs(cellAspect - POSTER_ASPECT);
+  if (score < bestScore) { bestScore = score; bestCols = c; }
+}
+let bestRows = Math.ceil(posters.length / bestCols);
+
+const total = bestCols * bestRows;
+const origLen = posters.length;
+while (posters.length < total) {
+  posters.push(posters[Math.floor(Math.random() * origLen)]);
+}
+
+const mosaic = document.getElementById("mosaic");
+mosaic.style.gridTemplateColumns = `repeat(${bestCols}, 1fr)`;
+mosaic.style.gridTemplateRows = `repeat(${bestRows}, 1fr)`;
+
+posters.forEach(p => {
+  const card = document.createElement("a");
+  card.className = "card";
+  card.href = BASE + p.l;
+  card.target = "_blank";
+  card.rel = "noopener";
+  card.title = p.t;
+
+  const frontSrc = imgUrl(p.f, "full", 800);
+  const backSrc = p.b ? imgUrl(p.b, "full", 800) : null;
+
+  card.innerHTML = `
+    <div class="card-inner">
+      <div class="card-front">
+        <img loading="lazy" alt="${p.t.replace(/"/g, '&quot;')}" src="${frontSrc}" onload="this.classList.add('loaded')">
+      </div>
+      <div class="card-back">
+        ${backSrc
+          ? `<img loading="lazy" alt="${p.t.replace(/"/g, '&quot;')} (back)" src="${backSrc}" onload="this.classList.add('loaded')">`
+          : `<div class="no-back">${p.t}</div>`
+        }
+      </div>
+    </div>`;
+
+  mosaic.appendChild(card);
+});
+</script>
+</body>
+</html>
